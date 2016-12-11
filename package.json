@@ -1,0 +1,27 @@
+{
+  "name": "momondo-ai",
+  "version": "1.0.0",
+  "description": "A Travel Agency Bot",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Todberg/momondo-ai.git"
+  },
+  "author": "Mikkel Todberg",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Todberg/momondo-ai/issues"
+  },
+  "homepage": "https://github.com/Todberg/momondo-ai#readme",
+  "devDependencies": {
+    "dotenv-extended": "^1.0.4",
+    "nodemon": "^1.11.0",
+    "restify": "^4.3.0"
+  },
+  "dependencies": {
+    "botbuilder": "^3.4.4"
+  }
+}
