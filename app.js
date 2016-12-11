@@ -25,7 +25,12 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer], recognizeMod
 
 intents.matches('BookFlight', [
     function (session, args, next) {
-        
+        session.send('You want to book a flight');
+        var originEntity = builder.EntityRecognizer.findEntity(args.entities, 'Origin');
+        var destinationEntity = builder.EntityRecognizer.findEntity(args.entities, 'Destination');
+        var departureDateEntity = builder.EntityRecognizer.findEntity(args.entities, 'DepartureDate');
+
+        // TODO...
     }
 ]);
 
