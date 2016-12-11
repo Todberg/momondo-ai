@@ -20,7 +20,6 @@ var luisAPIKey = process.env.LuisAPIKey;
 
 const LuisModelUrl = `https://${luisAPIHostName}/luis/v1/application?id=${luisAppId}&subscription-key=${luisAPIKey}`;
 
-
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 var intents = new builder.IntentDialog({ recognizers: [recognizer], recognizeMode : builder.RecognizeMode.onBegin })
 
