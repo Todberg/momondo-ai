@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "typeRoots": ["node_modules/@types"],
+        "noImplicitAny": false,
+        "sourceMap": true,
+        "strictNullChecks": true
+    }
+}
