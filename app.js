@@ -13,31 +13,38 @@ var connector = new builder.ChatConnector({
     appPassword: process.env.MICROSOFT_APP_PASSWORD
 });
 var bot = new builder.UniversalBot(connector);
- 
-var luisAPIHostName = process.env.LuisAPIHostName;
-var luisAppId = process.env.LuisAppId;
-var luisAPIKey = process.env.LuisAPIKey;
+
+var luisAPIHostName = process.env.MICROSOFT_LUIS_API_HOST_NAME || 'api.projectoxford.ai';
+var luisAppId = process.env.LuisAppId || process.env.MICROSOFT_LUIS_APP_ID;
+var luisAPIKey = process.env.LuisAPIKey || process.env.MICROSOFT_LUIS_API_KEY;
+
+console.log('luisAPIHostName', luisAPIHostName);
+console.log('luisAppId', luisAppId);
+console.log('luisAPIKey', luisAPIKey);
 
 const LuisModelUrl = `https://${luisAPIHostName}/luis/v1/application?id=${luisAppId}&subscription-key=${luisAPIKey}`;
+
+console.log('LuisModelUrl ', LuisModelUrl);
 
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 var intents = new builder.IntentDialog({ recognizers: [recognizer], recognizeMode : builder.RecognizeMode.onBegin })
 
 intents.matches('BookFlight', [
     function (session, args, next) {
-        session.send('You want to book a flight');
         var originEntity = builder.EntityRecognizer.findEntity(args.entities, 'Origin');
         var destinationEntity = builder.EntityRecognizer.findEntity(args.entities, 'Destination');
         var departureDateEntity = builder.EntityRecognizer.findEntity(args.entities, 'DepartureDate');
+
+        session.send('So you want to book a flight');
 
         // TODO...
     }
 ]);
 
-intents.matches('Help', builder.DialogAction.send('Hi! Try asking me things like ...'));
+intents.matches('Help', builder.DialogAction.send('Try asking me things like ...'));
 
 intents.onDefault((session) => {
-    session.send('Sorry, I did not understand \'%s\'. Type \'help\' if you need assistance.', session.message.text);
+    session.send('Sorry, I did not understand \'%s\'. Try asking things like ...', session.message.text);
 });
 
 // Spell checking
@@ -62,7 +69,7 @@ bot.dialog('/', intents);
 
 // Setup Restify Server
 var server = restify.createServer();
-server.listen(process.env.port || process.env.PORT || 3978, function () {
+server.listen(process.env.port || process.env.PORT || 3978, () => {
     console.log('%s listening to %s', server.name, server.url);
 });
 server.post('/api/messages', connector.listen());
