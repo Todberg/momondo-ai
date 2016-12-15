@@ -1,6 +1,13 @@
 import {config} from "dotenv";
 import {Server, createServer} from "restify";
-import {IntentDialog, LuisRecognizer, EntityRecognizer, RecognizeMode, ChatConnector, UniversalBot, DialogAction} from "botbuilder";
+import {
+    IntentDialog, DialogAction, Session, Prompts,
+    LuisRecognizer, EntityRecognizer, RecognizeMode,
+    ChatConnector, UniversalBot,
+    IIntentRecognizerResult
+} from "botbuilder";
+import {ILuisRecognizerResult} from "./luis";
+import {writeFile} from "fs";
 
 // Loads .env variables into process.env.
 config();
@@ -13,19 +20,44 @@ const LuisModelUrl = `https://${luisAPIHostName}/luis/v1/application?id=${luisAp
 
 let recognizer = new LuisRecognizer(LuisModelUrl);
 
+// Create chat bot
+let connector = new ChatConnector({
+    appId: process.env.MICROSOFT_APP_ID,
+    appPassword: process.env.MICROSOFT_APP_PASSWORD
+});
+let bot = new UniversalBot(connector);
+
 let intents = new IntentDialog({ recognizers: [recognizer], recognizeMode : RecognizeMode.onBegin });
 
-console.log("luisAPIHostName", luisAPIHostName);
-console.log("luisAppId", luisAppId);
-console.log("luisAPIKey", luisAPIKey);
-
 intents.matches("BookFlight", [
-    (session, args, next) => {
-        let originEntity = EntityRecognizer.findEntity(args.entities, 'Origin');
-        let destinationEntity = EntityRecognizer.findEntity(args.entities, 'Destination');
-        let departureDateEntity = EntityRecognizer.findEntity(args.entities, 'DepartureDate');
+    (session: Session, result: ILuisRecognizerResult, next): void => {
+        let originEntity = EntityRecognizer.findEntity(result.entities, 'Origin');
+        let destinationEntity = EntityRecognizer.findEntity(result.entities, 'Destination');
+        let departureDateEntity = EntityRecognizer.findEntity(result.entities, 'DepartureDate');
 
-        session.send("So you want to book a flight");
+        session.dialogData = 
+        {
+            origin: originEntity ? originEntity.entity : null,
+            destination: destinationEntity ? destinationEntity.entity : null,
+            DepartureDate: departureDateEntity 
+                ? EntityRecognizer.resolveTime(result.entities.filter(e => e.entity === departureDateEntity.entity))
+                : null
+        }
+
+        if(result.intents[0].actions[0].triggered)
+        {
+            session.send("origin %s, destination %s, departure %s",
+                session.dialogData.origin,
+                session.dialogData.destination,
+                session.dialogData.departureDate);
+        }
+        else
+        {
+            session.send("Booking requirements not met");
+        }
+
+        // Debugging
+        //writeFile("response.json", JSON.stringify(result, null, 2));
     }
 ]);
 
@@ -34,13 +66,6 @@ intents.matches('Help', DialogAction.send("Try asking me things like ..."));
 intents.onDefault(session => {
     session.send("Sorry, I did not understand \'%s\'. Try asking things like ...", session.message.text);
 });
-
-// Create chat bot
-let connector = new ChatConnector({
-    appId: process.env.MICROSOFT_APP_ID,
-    appPassword: process.env.MICROSOFT_APP_PASSWORD
-});
-let bot = new UniversalBot(connector);
 
 bot.dialog('/', intents);
 
