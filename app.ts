@@ -1,13 +1,15 @@
 import {config} from "dotenv";
 import {Server, createServer} from "restify";
-import {
-    IntentDialog, DialogAction, Session, Prompts,
-    LuisRecognizer, EntityRecognizer, RecognizeMode,
+import {json} from "web-request";
+import 
+{
+    IntentDialog, IDialogResult, DialogAction, Session, Prompts,
+    LuisRecognizer, EntityRecognizer, LuisDialog, RecognizeMode, IIntent, IEntity,
     ChatConnector, UniversalBot,
     IIntentRecognizerResult
 } from "botbuilder";
 import {ILuisRecognizerResult} from "./luis";
-import {writeFile} from "fs";
+import {IBooking} from "./booking";
 
 // Loads .env variables into process.env.
 config();
@@ -29,35 +31,101 @@ let bot = new UniversalBot(connector);
 
 let intents = new IntentDialog({ recognizers: [recognizer], recognizeMode : RecognizeMode.onBegin });
 
+function completeBooking(session: Session, booking: IBooking)
+{
+    let originPromise = json(`https://airport.api.aero/airport/match/${booking.origin}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+    let destinationPromise = json(`https://airport.api.aero/airport/match/${booking.destination}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+
+    Promise.all([originPromise, destinationPromise])
+        .then(([origin, destination]: [any, any]) =>
+        {
+            session.send("origin %s, destination %s, departure %s",
+                origin.airports[0].code,
+                destination.airports[0].code,
+                booking.departureDate);
+        });
+}
+
 intents.matches("BookFlight", [
     (session: Session, result: ILuisRecognizerResult, next): void => {
-        let originEntity = EntityRecognizer.findEntity(result.entities, 'Origin');
-        let destinationEntity = EntityRecognizer.findEntity(result.entities, 'Destination');
-        let departureDateEntity = EntityRecognizer.findEntity(result.entities, 'DepartureDate');
+        let originEntity = EntityRecognizer.findEntity(result.entities, "Origin");
+        let destinationEntity = EntityRecognizer.findEntity(result.entities, "Destination");
+        let departureDateEntity = EntityRecognizer.findEntity(result.entities, "DepartureDate");
+        let tripTypeEntity = EntityRecognizer.findEntity(result.entities, "TripType");
 
-        session.dialogData = 
+        let booking: IBooking = session.dialogData.booking = 
         {
-            origin: originEntity ? originEntity.entity : null,
-            destination: destinationEntity ? destinationEntity.entity : null,
-            DepartureDate: departureDateEntity 
+            origin: originEntity 
+                ? originEntity.entity
+                : null,
+            destination: destinationEntity
+                ? destinationEntity.entity
+                : null,
+            departureDate: departureDateEntity 
                 ? EntityRecognizer.resolveTime(result.entities.filter(e => e.entity === departureDateEntity.entity))
+                : null,
+            tripType: tripTypeEntity
+                ? tripTypeEntity.entity
                 : null
         }
 
         if(result.intents[0].actions[0].triggered)
         {
-            session.send("origin %s, destination %s, departure %s",
-                session.dialogData.origin,
-                session.dialogData.destination,
-                session.dialogData.departureDate);
+           completeBooking(session, booking);
+        }
+
+        if(!booking.destination)
+        {
+            Prompts.text(session, "Where would you like to go?");
         }
         else
         {
-            session.send("Booking requirements not met");
+            next();
+        }
+    },
+    (session: Session, result: IDialogResult<string>, next): void => {
+        let booking: IBooking = session.dialogData.booking;
+        
+        if(result.response)
+        {
+            booking.destination = result.response;
         }
 
-        // Debugging
-        //writeFile("response.json", JSON.stringify(result, null, 2));
+        if(!booking.departureDate) 
+        {
+            Prompts.time(session, "When would you like to depart?");
+        }
+        else
+        {
+            next(); 
+        }
+    },
+    (session: Session, result: IDialogResult<IEntity>, next): void => {
+        let booking: IBooking = session.dialogData.booking;
+
+        if(result.response)
+        {
+            booking.departureDate = EntityRecognizer.resolveTime([result.response]);
+        }
+
+        if(!booking.origin)
+        {
+            Prompts.text(session, "From where would you be travelling from?");
+        }
+        else
+        {
+            next();
+        }
+    },
+    (session: Session, result: IDialogResult<string>, next): void => {
+        let booking: IBooking = session.dialogData.booking;
+
+        if(result.response)
+        {
+            booking.origin = result.response;
+        }
+
+        completeBooking(session, booking);
     }
 ]);
 

@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "npm run build:live",
-    "build:live": "nodemon --exec .\\node_modules\\.bin\\ts-node -- .\\app.ts"
+    "build:live": "nodemon --exec .\\node_modules\\.bin\\ts-node .\\app.ts"
   },
   "repository": {
     "type": "git",
@@ -19,15 +19,18 @@
   "homepage": "https://github.com/Todberg/momondo-ai#readme",
   "devDependencies": {
     "@types/dotenv": "^2.0.19",
+    "@types/es6-promise": "0.0.32",
     "@types/node": "0.0.3",
+    "@types/request": "0.0.36",
     "@types/restify": "^2.0.35",
-    "dotenv-extended": "^1.0.4",
     "nodemon": "^1.11.0",
     "restify": "^4.3.0",
     "ts-node": "^1.7.2",
     "typescript": "^2.1.4"
   },
   "dependencies": {
-    "botbuilder": "^3.4.4"
+    "botbuilder": "^3.4.4",
+    "dotenv-extended": "^1.0.4",
+    "web-request": "^1.0.7"
   }
 }
