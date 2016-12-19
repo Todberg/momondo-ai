@@ -3,12 +3,15 @@ import {Server, createServer} from "restify";
 import {json} from "web-request";
 import 
 {
-    IntentDialog, IDialogResult, DialogAction, Session, Prompts,
+    IntentDialog, IDialogResult, DialogAction, Session, Prompts, SimplePromptRecognizer, PromptType,
     LuisRecognizer, EntityRecognizer, LuisDialog, RecognizeMode, IIntent, IEntity,
     ChatConnector, UniversalBot,
     IIntentRecognizerResult
 } from "botbuilder";
 import {ILuisRecognizerResult} from "./luis";
+import {LuisPromptRecognizer} from "./src/luis-prompt-recognizer";
+import {validatedPromptAsync} from "./src/validated-prompt-async";
+import {IAeroResponse} from "./aero";
 import {IBooking} from "./booking";
 
 // Loads .env variables into process.env.
@@ -33,17 +36,24 @@ let intents = new IntentDialog({ recognizers: [recognizer], recognizeMode : Reco
 
 function completeBooking(session: Session, booking: IBooking)
 {
-    let originPromise = json(`https://airport.api.aero/airport/match/${booking.origin}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
-    let destinationPromise = json(`https://airport.api.aero/airport/match/${booking.destination}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+    // let originPromise = json(`https://airport.api.aero/airport/match/${booking.origin}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+    // let destinationPromise = json(`https://airport.api.aero/airport/match/${booking.destination}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
 
-    Promise.all([originPromise, destinationPromise])
-        .then(([origin, destination]: [any, any]) =>
-        {
-            session.send("origin %s, destination %s, departure %s",
-                origin.airports[0].code,
-                destination.airports[0].code,
-                booking.departureDate);
-        });
+    // Promise.all([originPromise, destinationPromise])
+    //     .then(([origin, destination]: [any, any]) =>
+    //     {
+    //         session.send("origin %s, destination %s, departure %s",
+    //             origin.airports[0].code,
+    //             destination.airports[0].code,
+    //             booking.departureDate);
+    //     });
+
+    session.send("origin %s, destination %s, departure %s",
+        origin.airports[0].code,
+        destination.airports[0].code,
+        booking.departureDate);
+    
+    session.endDialog();
 }
 
 intents.matches("BookFlight", [
@@ -57,13 +67,13 @@ intents.matches("BookFlight", [
         {
             origin: originEntity 
                 ? originEntity.entity
-                : null,
+                : null, // PlaceFactory.origin(result.entities)
             destination: destinationEntity
                 ? destinationEntity.entity
-                : null,
+                : null, // PlaceFactory.destination(result.entities)
             departureDate: departureDateEntity 
                 ? EntityRecognizer.resolveTime(result.entities.filter(e => e.entity === departureDateEntity.entity))
-                : null,
+                : null, // new DateBuilder(result.entities)
             tripType: tripTypeEntity
                 ? tripTypeEntity.entity
                 : null
@@ -74,9 +84,11 @@ intents.matches("BookFlight", [
            completeBooking(session, booking);
         }
 
-        if(!booking.destination)
+        if(!booking.destination) // Validate!?
         {
+            // TODO: Recognize as a valid place!
             Prompts.text(session, "Where would you like to go?");
+            
         }
         else
         {
@@ -85,7 +97,7 @@ intents.matches("BookFlight", [
     },
     (session: Session, result: IDialogResult<string>, next): void => {
         let booking: IBooking = session.dialogData.booking;
-        
+
         if(result.response)
         {
             booking.destination = result.response;
@@ -110,7 +122,12 @@ intents.matches("BookFlight", [
 
         if(!booking.origin)
         {
-            Prompts.text(session, "From where would you be travelling from?");
+            //Prompts.text(session, "From where would you be travelling from?");
+            session.beginDialog("/promptOrigin", 
+            { 
+                prompt: "From where would you be travelling from?",
+                retryPrompt: "Try again" 
+            });
         }
         else
         {
@@ -135,7 +152,24 @@ intents.onDefault(session => {
     session.send("Sorry, I did not understand \'%s\'. Try asking things like ...", session.message.text);
 });
 
+/* Dialogs */
 bot.dialog('/', intents);
+
+bot.dialog("/promptOrigin", validatedPromptAsync(PromptType.text, async (response: string): Promise<boolean> =>
+{
+    let origin = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${response}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+
+    if(origin.airports.length > 0)
+    {
+        console.log("Resolving validation promise with true");
+        return Promise.resolve(true);
+    }
+    else
+    {
+        console.log("Resolving validation promise with false");
+        return Promise.resolve(false);
+    }
+}));
 
 // Setup Restify Server
 let server: Server = createServer()
