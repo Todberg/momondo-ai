@@ -41,8 +41,10 @@ function completeBooking(session: Session, booking: IBooking)
     session.endDialog();
 }
 
+let persistedBooking;
+
 intents.matches("BookFlight", [
-    (session: Session, result: ILuisRecognizerResult, next): void => {
+    async (session: Session, result: ILuisRecognizerResult, next): Promise<void> => {
         let originEntity = EntityRecognizer.findEntity(result.entities, "Origin");
         let destinationEntity = EntityRecognizer.findEntity(result.entities, "Destination");
         let departureDateEntity = EntityRecognizer.findEntity(result.entities, "DepartureDate");
@@ -50,8 +52,8 @@ intents.matches("BookFlight", [
 
         let booking: IBooking = session.dialogData.booking = 
         {
-            origin: PlaceFactory.createOrigin(result),
-            destination: PlaceFactory.createDestination(result),
+            origin: await PlaceFactory.createOrigin(result),
+            destination: await PlaceFactory.createDestination(result),
             departureDate: departureDateEntity 
                 ? EntityRecognizer.resolveTime(result.entities.filter(e => e.entity === departureDateEntity.entity))
                 : null,
@@ -60,14 +62,22 @@ intents.matches("BookFlight", [
                 : null
         }
 
+        persistedBooking = booking;
+
+        console.log("booking.origin", JSON.stringify(booking.origin));
+        console.log("booking.destination", JSON.stringify(booking.destination));
+
+        console.log("booking.origin instanceof Origin", booking.origin instanceof Origin);
+        console.log("booking.destination instanceof Destination", booking.destination instanceof Destination);
+
         if(result.intents[0].actions[0].triggered)
         {
            completeBooking(session, booking);
         }
 
-        if(!booking.destination.isValid)
+        if(!booking.destination.isValid())
         {
-            session.beginDialog("/promptLocation", 
+            session.beginDialog("/promptDestination", 
             {
                 prompt: "To where?",
                 retryPrompt: "Try again",
@@ -82,7 +92,7 @@ intents.matches("BookFlight", [
     (session: Session, result: IDialogResult<Destination>, next): void => {
         let booking: IBooking = session.dialogData.booking;
 
-        if(result.response) // isValid?
+        if(result.response)
         {
             booking.destination = result.response;
         }
@@ -103,10 +113,14 @@ intents.matches("BookFlight", [
         {
             booking.departureDate = EntityRecognizer.resolveTime([result.response]);
         }
+        
+        console.log("booking.origin instanceof Origin", booking.origin instanceof Origin);
+        console.log("session.userData.booking.origin", session.userData.booking.origin instanceof Origin);
+        console.log("persistedBooking", persistedBooking.origin instanceof Origin);
 
-        if(!booking.origin)
+        if(!booking.origin.isValid())
         {
-            session.beginDialog("/promptLocation", 
+            session.beginDialog("/promptOrigin", 
             { 
                 prompt: "From where?",
                 retryPrompt: "Try again",
@@ -118,7 +132,7 @@ intents.matches("BookFlight", [
             next();
         }
     },
-    (session: Session, result: IDialogResult<string>, next): void => {
+    (session: Session, result: IDialogResult<Origin>, next): void => {
         let booking: IBooking = session.dialogData.booking;
 
         if(result.response)
@@ -141,24 +155,14 @@ bot.dialog('/', intents);
 
 bot.dialog("/promptOrigin", validatedPromptAsync(PromptType.text, async (args: IDialogResult<any>): Promise<boolean> =>
 {
-    console.log("args ", args);
+    let origin = await PlaceFactory.createOrigin(args.response);
+    return Promise.resolve(origin.isValid());
+}));
 
-    let name = args.response;
-    let airport = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${name}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
-    
-    //args.response = PlaceFactory.createOrigin();
-
-    if(airport.airports.length === 1)
-    {
-        
-    }
-    else
-    {
-        args.response = PlaceFactory.createOrigin();
-    }
-
-
-    return Promise.resolve(airport.airports.length === 1);
+bot.dialog("/promptDestination", validatedPromptAsync(PromptType.text, async (args: IDialogResult<any>): Promise<boolean> =>
+{
+    let origin = await PlaceFactory.createDestination(args.response);
+    return Promise.resolve(origin.isValid());
 }));
 
 // Setup Restify Server
