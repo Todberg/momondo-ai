@@ -1,8 +1,4 @@
-import 
-{
-    PromptType, Dialog, SimpleDialog,
-    Session, IDialogResult, ResumeReason, IPromptArgs
-} from "botbuilder";
+import { PromptType, Dialog, SimpleDialog, Session, IDialogResult, ResumeReason, IPromptArgs } from "botbuilder";
 
 function prompt(session: Session, args: IDialogResult<any>, promptType: PromptType, isValid: boolean)
 {
@@ -50,7 +46,7 @@ function prompt(session: Session, args: IDialogResult<any>, promptType: PromptTy
     }
 }
 
-export function validatedPromptAsync(promptType: PromptType, validator: (response: string) => Promise<boolean>): Dialog
+export function validatedPromptAsync(promptType: PromptType, validator: (response: any) => Promise<boolean>): Dialog
 {
     return new SimpleDialog(async (session: Session, args: IDialogResult<any>): Promise<void> =>
     {
@@ -62,7 +58,7 @@ export function validatedPromptAsync(promptType: PromptType, validator: (respons
         {
             try
             {
-                isValid = await validator(args.response);
+                isValid = await validator(args);
             }
             catch(error)
             {
@@ -83,7 +79,6 @@ export function validatedPromptAsync(promptType: PromptType, validator: (respons
 
         if(isValid || isCancelled)
         {
-            console.log("Success");
             session.endDialogWithResult(args);
         }
         else if(!session.dialogData.hasOwnProperty("prompt"))

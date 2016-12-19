@@ -9,10 +9,10 @@ import
     IIntentRecognizerResult
 } from "botbuilder";
 import {ILuisRecognizerResult} from "./luis";
-import {LuisPromptRecognizer} from "./src/luis-prompt-recognizer";
 import {validatedPromptAsync} from "./src/validated-prompt-async";
 import {IAeroResponse} from "./aero";
 import {IBooking} from "./booking";
+import {PlaceFactory, Origin, Destination} from "./src/place-factory";
 
 // Loads .env variables into process.env.
 config();
@@ -36,22 +36,7 @@ let intents = new IntentDialog({ recognizers: [recognizer], recognizeMode : Reco
 
 function completeBooking(session: Session, booking: IBooking)
 {
-    // let originPromise = json(`https://airport.api.aero/airport/match/${booking.origin}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
-    // let destinationPromise = json(`https://airport.api.aero/airport/match/${booking.destination}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
-
-    // Promise.all([originPromise, destinationPromise])
-    //     .then(([origin, destination]: [any, any]) =>
-    //     {
-    //         session.send("origin %s, destination %s, departure %s",
-    //             origin.airports[0].code,
-    //             destination.airports[0].code,
-    //             booking.departureDate);
-    //     });
-
-    session.send("origin %s, destination %s, departure %s",
-        origin.airports[0].code,
-        destination.airports[0].code,
-        booking.departureDate);
+    session.send("booking done");
     
     session.endDialog();
 }
@@ -65,15 +50,11 @@ intents.matches("BookFlight", [
 
         let booking: IBooking = session.dialogData.booking = 
         {
-            origin: originEntity 
-                ? originEntity.entity
-                : null, // PlaceFactory.origin(result.entities)
-            destination: destinationEntity
-                ? destinationEntity.entity
-                : null, // PlaceFactory.destination(result.entities)
+            origin: PlaceFactory.createOrigin(result),
+            destination: PlaceFactory.createDestination(result),
             departureDate: departureDateEntity 
                 ? EntityRecognizer.resolveTime(result.entities.filter(e => e.entity === departureDateEntity.entity))
-                : null, // new DateBuilder(result.entities)
+                : null,
             tripType: tripTypeEntity
                 ? tripTypeEntity.entity
                 : null
@@ -84,28 +65,31 @@ intents.matches("BookFlight", [
            completeBooking(session, booking);
         }
 
-        if(!booking.destination) // Validate!?
+        if(!booking.destination.isValid)
         {
-            // TODO: Recognize as a valid place!
-            Prompts.text(session, "Where would you like to go?");
-            
+            session.beginDialog("/promptLocation", 
+            {
+                prompt: "To where?",
+                retryPrompt: "Try again",
+                maxRetries: 100
+            });
         }
         else
         {
             next();
         }
     },
-    (session: Session, result: IDialogResult<string>, next): void => {
+    (session: Session, result: IDialogResult<Destination>, next): void => {
         let booking: IBooking = session.dialogData.booking;
 
-        if(result.response)
+        if(result.response) // isValid?
         {
             booking.destination = result.response;
         }
 
         if(!booking.departureDate) 
         {
-            Prompts.time(session, "When would you like to depart?");
+            Prompts.time(session, "When?");
         }
         else
         {
@@ -122,11 +106,11 @@ intents.matches("BookFlight", [
 
         if(!booking.origin)
         {
-            //Prompts.text(session, "From where would you be travelling from?");
-            session.beginDialog("/promptOrigin", 
+            session.beginDialog("/promptLocation", 
             { 
-                prompt: "From where would you be travelling from?",
-                retryPrompt: "Try again" 
+                prompt: "From where?",
+                retryPrompt: "Try again",
+                maxRetries: 100
             });
         }
         else
@@ -155,20 +139,26 @@ intents.onDefault(session => {
 /* Dialogs */
 bot.dialog('/', intents);
 
-bot.dialog("/promptOrigin", validatedPromptAsync(PromptType.text, async (response: string): Promise<boolean> =>
+bot.dialog("/promptOrigin", validatedPromptAsync(PromptType.text, async (args: IDialogResult<any>): Promise<boolean> =>
 {
-    let origin = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${response}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+    console.log("args ", args);
 
-    if(origin.airports.length > 0)
+    let name = args.response;
+    let airport = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${name}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+    
+    //args.response = PlaceFactory.createOrigin();
+
+    if(airport.airports.length === 1)
     {
-        console.log("Resolving validation promise with true");
-        return Promise.resolve(true);
+        
     }
     else
     {
-        console.log("Resolving validation promise with false");
-        return Promise.resolve(false);
+        args.response = PlaceFactory.createOrigin();
     }
+
+
+    return Promise.resolve(airport.airports.length === 1);
 }));
 
 // Setup Restify Server
