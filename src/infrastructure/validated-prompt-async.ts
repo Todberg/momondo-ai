@@ -15,7 +15,6 @@ function prompt(session: Session, args: IDialogResult<any>, promptType: PromptTy
 
     if(isValid || isCancelled)
     {
-        console.log("Success");
         session.endDialogWithResult(args);
     }
     else if(!session.dialogData.hasOwnProperty("prompt"))
