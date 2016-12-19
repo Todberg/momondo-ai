@@ -1,7 +1,8 @@
-import { EntityRecognizer, IEntity } from "botbuilder";
+import {EntityRecognizer, IEntity} from "botbuilder";
 import {json} from "web-request";
-import {ILuisRecognizerResult} from "../luis";
-import {IAeroResponse} from "../aero";
+import {ILuisRecognizerResult} from "../../../momondo-ai";
+import {Booking, Origin, Destination} from "./booking";
+import {IAeroResponse} from "../../services/aero/aero";
 
 export class PlaceFactory
 {
@@ -27,14 +28,12 @@ export class PlaceFactory
 
         let origin = new Origin();
 
-        try
+        let response = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${airportName}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+
+        if(response.airports.length === 1)
         {
-            let response = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${airportName}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
-            origin.name = response.airports.length === 1 ? response.airports[0].name : null;
-        }
-        catch(error)
-        {
-            console.log("ERROR ORIGIN");
+            origin.name = response.airports[0].name;
+            origin.iata = response.airports[0].code;
         }
 
         return origin;
@@ -62,36 +61,14 @@ export class PlaceFactory
 
         let destination = new Destination();
 
-        try
+        let response = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${airportName}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
+        
+        if(response.airports.length === 1)
         {
-            let response = await json<IAeroResponse>(`https://airport.api.aero/airport/match/${airportName}?user_key=${process.env.SITA_DEVELOPER_AERO_AIRPORT_API_KEY}`);
-            destination.name = response.airports.length === 1 ? response.airports[0].name : null;
-        }
-        catch(error)
-        {
-            console.log("ERROR DESTINATION");
+            destination.name = response.airports[0].name;
+            destination.iata = response.airports[0].code;
         }
 
         return destination;
     }
-}
-
-export class Origin
-{
-    public isValid(): boolean
-    {
-        return this.name !== null;
-    }
-
-    public name: string;
-}
-
-export class Destination
-{
-    public isValid(): boolean
-    {
-        return this.name !== null;
-    }
-
-    public name: string;
 }

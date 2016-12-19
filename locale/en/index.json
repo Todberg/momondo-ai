@@ -1,0 +1,10 @@
+{
+    "originPrompt": ["From what airport?"],
+    "originRetryPrompt": ["I didn't recognize any airport by that name. Try again."],
+    "destinationPrompt": ["To what airport?"],
+    "destinationRetryPrompt": ["I didn't recognize any airport by that name. Try again."],
+    "departureDatePrompt": ["When is it?"],
+    "ticketSearch": ["Searching for tickets from %s to destination %s for departure %s"],
+    "default": ["Sorry, I did not understand '%s'. Try asking me to book a flight."],
+    "help": ["Try asking me to book a flight"]
+}

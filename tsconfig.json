@@ -1,8 +1,7 @@
 {
     "compilerOptions": {
-        "lib": ["dom", "es2015.promise", "es5"],
         "module": "commonjs",
-        "target": "es5",
+        "target": "es6",
         "typeRoots": ["node_modules/@types"],
         "noImplicitAny": false,
         "sourceMap": true,

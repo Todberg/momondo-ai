@@ -1,4 +1,4 @@
-import { PromptType, Dialog, SimpleDialog, Session, IDialogResult, ResumeReason, IPromptArgs } from "botbuilder";
+import {PromptType, Dialog, SimpleDialog, Session, IDialogResult, ResumeReason, IPromptArgs} from "botbuilder";
 
 function prompt(session: Session, args: IDialogResult<any>, promptType: PromptType, isValid: boolean)
 {
@@ -121,6 +121,3 @@ function clone(obj: any): any {
     }
     return cpy;
 }
-
-// https://docs.botframework.com/en-us/node/builder/chat-reference/classes/_botbuilder_d_.dialogaction.html#validatedprompt
-// https://github.com/Microsoft/BotBuilder/issues/1179

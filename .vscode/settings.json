@@ -1,4 +1,13 @@
 // Place your settings in this file to overwrite default and user settings.
 {
+    // Configure glob patterns for excluding files and folders.
+    "files.exclude": {
+        ".vscode": true,
+        ".gitignore": true,
+        ".env": true,
+        "momondo-ai.json": true,
+        "node_modules": true
+    },
+
     "typescript.tsdk": "./node_modules/typescript/lib"
 }
